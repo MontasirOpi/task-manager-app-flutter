@@ -1,4 +1,3 @@
-import 'dart:js_interop';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';

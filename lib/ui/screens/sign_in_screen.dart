@@ -1,10 +1,15 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:task_manager/data/models/network_response.dart';
+import 'package:task_manager/data/services/network_caller.dart';
+import 'package:task_manager/data/utils/urls.dart';
 import 'package:task_manager/ui/screens/forgot_password_email_verifacation_screen.dart';
 import 'package:task_manager/ui/screens/main_bottom_nav_bar_screen.dart';
 import 'package:task_manager/ui/screens/sign_up_screen.dart';
 import 'package:task_manager/ui/utils/app_colors.dart';
+import 'package:task_manager/ui/widgets/centered_circular_progress_indicator.dart';
 import 'package:task_manager/ui/widgets/screen_background.dart';
+import 'package:task_manager/ui/widgets/snack_bar_message.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -14,6 +19,10 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _emailTEController = TextEditingController();
+  final TextEditingController _passwordTEController = TextEditingController();
+  bool _inProgress = false;
   @override
   Widget build(BuildContext context) {
     TextTheme textTheme = Theme.of(context).textTheme;
@@ -66,7 +75,7 @@ class _SignInScreenState extends State<SignInScreen> {
   Widget _buildSignUpSection() {
     return RichText(
       text: TextSpan(
-          style: TextStyle(
+          style: const TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.w600,
             fontSize: 14,
@@ -76,7 +85,7 @@ class _SignInScreenState extends State<SignInScreen> {
           children: [
             TextSpan(
                 text: 'Sign Up',
-                style: TextStyle(
+                style: const TextStyle(
                   color: AppColors.themeColor,
                 ),
                 recognizer: TapGestureRecognizer()..onTap = _onTapSignUp),
@@ -85,37 +94,84 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   Widget _buildSignInFrom() {
-    return Column(
-      children: [
-        TextFormField(
-          keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(
-            hintText: 'Email',
+    return Form(
+      key: _formKey,
+      child: Column(
+        children: [
+          TextFormField(
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            controller: _emailTEController,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              hintText: 'Email',
+            ),
+            validator: (String? value) {
+              if (value?.isEmpty ?? true) {
+                return 'Enter a valid email';
+              }
+              return null;
+            },
           ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          obscureText: true,
-          decoration: const InputDecoration(
-            hintText: 'Password',
+          const SizedBox(height: 8),
+          TextFormField(
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            controller: _passwordTEController,
+            obscureText: true,
+            decoration: const InputDecoration(
+              hintText: 'Password',
+            ),
+            validator: (String? value) {
+              if (value?.isEmpty ?? true) {
+                return 'Enter a Password';
+              }
+              if (value!.length <= 6) {
+                return 'Enter a password more then 6 characters';
+              }
+              return null;
+            },
           ),
-        ),
-        const SizedBox(height: 24),
-        ElevatedButton(
-          onPressed: _onTApNextButton,
-          child: const Icon(Icons.arrow_forward_ios),
-        ),
-      ],
+          const SizedBox(height: 24),
+          Visibility(
+            visible: !_inProgress,
+            replacement: const CenteredCircularProgressIndicator(),
+            child: ElevatedButton(
+              onPressed: _onTApNextButton,
+              child: const Icon(Icons.arrow_forward_ios),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   void _onTApNextButton() {
-    Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const MainBottomNavBarScreen(),
-        ),
-        (_) => false);
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    _singIn();
+  }
+
+  Future<void> _singIn() async {
+    _inProgress = true;
+    setState(() {});
+    Map<String, dynamic> requestBody = {
+      'email': _emailTEController.text.trim(),
+      'password': _passwordTEController.text,
+    };
+    final NetworkResponse response =
+        await NetworkCaller.postRequest(url: Urls.login, body: requestBody);
+    _inProgress = false;
+    setState(() {});
+    if (response.isSuccess) {
+      Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const MainBottomNavBarScreen(),
+          ),
+          (value) => false);
+    } else {
+      showSnackBarMessage(context, response.errorMessage, true);
+    }
   }
 
   void _onTapForgotPasswordButton() {
